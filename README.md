@@ -2,14 +2,14 @@
 
 ## 项目简介
 
-Sixty-Three是一个基于RAG（检索增强生成）技术的智能文档检索与对话系统。该系统能够上传、处理和检索文档，支持自然语言查询，并提供基于文档内容的智能回答。
+Sixty-Three是一个基于RAG（检索增强生成）技术的Agent系统。目标是成为个人的全盘助手，实现对个人电脑与手机的完全掌控，以及模型个性化（模仿人的语气与声音）。
 
 ## 核心功能
 
 - 📚 **文档管理**：支持上传PDF和Word文档
 - 🔍 **智能检索**：基于向量数据库的相似度搜索
 - 🤖 **AI对话**：支持基于文档内容的智能问答
-- 🎤 **语音合成**：支持文本转语音功能
+- 🎤 **语音合成**：支持文本转语音功能（维护中）
 - 💬 **多轮对话**：支持上下文感知的多轮对话
 - 📁 **文档删除**：支持从知识库中移除文档（保留本地文件）
 
@@ -77,12 +77,11 @@ pip install -r requirements.txt
 创建 `.env` 文件：
 ```env
 # 基础配置
-OPENAI_API_KEY=your-api-key
-BASE_URL=https://api.openai.com/v1
-MODEL=gpt-4.1
+OPENAI_API_KEY=sk-xxxxxxxx
+BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+MODEL=qwen-max
 
 # 嵌入模型配置
-EMBEDDING_MODEL=text-embedding-ada-002
 HF_EMBEDDING_MODEL_PATH=moka-ai/m3e-base
 EMBEDDING_DEVICE=cuda
 
@@ -90,9 +89,6 @@ EMBEDDING_DEVICE=cuda
 CHROMA_PERSIST_DIR=./chroma_db
 CHROMA_COLLECTION=embeddings_collection
 
-# 语音合成配置
-AMAP_WEATHER_API=https://restapi.amap.com/v3/weather/weatherInfo
-AMAP_API_KEY=your-amap-key
 ```
 
 4. **启动服务**
@@ -156,18 +152,6 @@ python main.py
 - `GET /sessions/{user_id}/{session_id}` - 获取会话消息
 - `DELETE /sessions/{user_id}/{session_id}` - 删除会话
 
-## 配置选项
-
-### 分块配置
-- `chunk_size`：分块大小（默认500字符）
-- `chunk_overlap`：分块重叠（默认50字符）
-- 三级分块策略：L1(1200字符)、L2(600字符)、L3(300字符)
-
-### RAG配置
-- `LEAF_RETRIEVE_LEVEL`：叶子节点检索级别（默认3）
-- `AUTO_MERGE_ENABLED`：自动合并开关（默认开启）
-- `AUTO_MERGE_THRESHOLD`：合并阈值（默认2）
-
 ## 故障排除
 
 ### 常见问题
@@ -191,15 +175,6 @@ python main.py
 # 查看服务器日志
 uvicorn backend.app:app --reload --log-level debug
 ```
-
-## 部署
-
-### Docker部署
-
-```bash
-docker-compose up -d
-```
-
 
 ## 贡献
 
