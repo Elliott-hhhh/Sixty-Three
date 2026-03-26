@@ -34,7 +34,7 @@ class ChromaManager:
                     model_kwargs=model_kwargs,
                     encode_kwargs=encode_kwargs,
                 )
-                print(f"使用HuggingFace嵌入模型: {hf_model_path}, 设备: {device}")
+                print(f"使用HuggingFace嵌入模型: {hf_model_path}, 设备: {model_kwargs['device']}")
             else:
                 # 使用OpenAI嵌入模型
                 embeddings = OpenAIEmbeddings(
@@ -83,7 +83,7 @@ class ChromaManager:
             
             # 添加文档到Chroma
             self.vector_store.add_texts(texts=texts, metadatas=metadatas)
-            self.vector_store.persist()
+           
             return {"success": True, "count": len(texts)}
         except Exception as e:
             return {"error": str(e)}
@@ -97,14 +97,22 @@ class ChromaManager:
         
         try:
             # 如果有过滤条件，转换为Chroma的过滤格式
-            where_filter = {}
+            where_filter = None
             if filter_expr:
-                # 简单的过滤条件转换
+                conditions = []
                 if "chunk_level" in filter_expr:
-                    where_filter["chunk_level"] = filter_expr["chunk_level"]
+                    conditions.append({"chunk_level": {"$eq": filter_expr["chunk_level"]}})
+                if "filename" in filter_expr:
+                    conditions.append({"filename": {"$eq": filter_expr["filename"]}})
+                
+                if conditions:
+                    if len(conditions) == 1:
+                        where_filter = conditions[0]
+                    else:
+                        where_filter = {"$and": conditions}
             
-            # 执行相似度搜索
-            results = self.vector_store.similarity_search(
+
+            results_with_scores = self.vector_store.similarity_search_with_score(
                 query=query,
                 k=top_k,
                 filter=where_filter,
@@ -112,7 +120,7 @@ class ChromaManager:
             
             # 格式化结果
             formatted_results = []
-            for i, doc in enumerate(results):
+            for i, (doc, score) in enumerate(results_with_scores):
                 formatted_results.append({
                     "id": i,
                     "text": doc.page_content,
@@ -124,7 +132,7 @@ class ChromaManager:
                     "root_chunk_id": doc.metadata.get("root_chunk_id", ""),
                     "chunk_level": doc.metadata.get("chunk_level", 0),
                     "chunk_idx": doc.metadata.get("chunk_idx", 0),
-                    "score": 1.0 - i * 0.1,  # 简单的模拟分数
+                    "score": float(score),  # 使用Chroma返回的真实相似度分数
                 })
             
             return formatted_results
@@ -138,10 +146,14 @@ class ChromaManager:
             return False
         
         try:
-            # 简单的删除实现
-            # 在实际应用中，可能需要更复杂的删除逻辑
+            where_filter = {}
+            if "filename" in filter_expr:
+                where_filter["filename"] = filter_expr["filename"]
+            
+            self.vector_store.delete(where=where_filter)
             return True
-        except Exception:
+        except Exception as e:
+            print(f"删除文档失败: {e}")
             return False
 
     def clear_collection(self):

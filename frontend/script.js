@@ -386,7 +386,7 @@ createApp({
         },
         
         async deleteDocument(filename) {
-            if (!confirm(`确定要删除文档 "${filename}" 吗？这将同时删除 Milvus 中的所有相关向量。`)) {
+            if (!confirm(`确定要删除文档 "${filename}" 吗？这将同时删除数据库中的所有相关向量。`)) {
                 return;
             }
             

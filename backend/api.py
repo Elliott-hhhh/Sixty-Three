@@ -1,6 +1,7 @@
 import re
 import os
 import json
+import datetime
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
@@ -106,7 +107,6 @@ async def list_sessions(user_id: str):
                 message_count=len(session_data.get("messages", []))
             ))
         
-        # 按更新时间倒序排列
         sessions.sort(key=lambda x: x.updated_at, reverse=True)
         return SessionListResponse(sessions=sessions)
     except Exception as e:
@@ -185,19 +185,24 @@ async def chat_stream_endpoint(request: ChatRequest):
 async def list_documents():
     """获取已上传的文档列表"""
     try:
-        # 使用本地文件系统获取文档列表，Chroma不直接提供查询功能
+        # 创建文档元数据存储文件路径
+        metadata_file = DATA_DIR / "documents_metadata.json"
+        
+
+        if metadata_file.exists():
+            with open(metadata_file, "r", encoding="utf-8") as f:
+                documents_metadata = json.load(f)
+        else:
+            documents_metadata = {}
+        
+        # 获取文档列表
         documents = []
-        if UPLOAD_DIR.exists():
-            for file in UPLOAD_DIR.iterdir():
-                if file.is_file():
-                    filename = file.name
-                    file_lower = filename.lower()
-                    file_type = "PDF" if file_lower.endswith(".pdf") else "Word" if file_lower.endswith((".docx", ".doc")) else "Unknown"
-                    documents.append(DocumentInfo(
-                        filename=filename,
-                        file_type=file_type,
-                        chunk_count=0  # Chroma不直接提供chunk计数
-                    ))
+        for filename, metadata in documents_metadata.items():
+            documents.append(DocumentInfo(
+                filename=filename,
+                file_type=metadata.get("file_type", "Unknown"),
+                chunk_count=metadata.get("chunk_count", 0)
+            ))
         
         return DocumentListResponse(documents=documents)
     except Exception as e:
@@ -245,6 +250,22 @@ async def upload_document(file: UploadFile = File(...)):
         if "error" in result:
             raise HTTPException(status_code=500, detail=f"Chroma存储失败: {result['error']}")
 
+        metadata_file = DATA_DIR / "documents_metadata.json"
+        if metadata_file.exists():
+            with open(metadata_file, "r", encoding="utf-8") as f:
+                documents_metadata = json.load(f)
+        else:
+            documents_metadata = {}
+        
+        documents_metadata[filename] = {
+            "file_type": "PDF" if filename.lower().endswith(".pdf") else "Word",
+            "chunk_count": len(leaf_docs),
+            "upload_time": datetime.datetime.now().isoformat()
+        }
+        
+        with open(metadata_file, "w", encoding="utf-8") as f:
+            json.dump(documents_metadata, f, ensure_ascii=False, indent=2)
+
         return DocumentUploadResponse(
             filename=filename,
             chunks_processed=len(leaf_docs),
@@ -261,16 +282,29 @@ async def upload_document(file: UploadFile = File(...)):
 
 @router.delete("/documents/{filename}", response_model=DocumentDeleteResponse)
 async def delete_document(filename: str):
-    """删除文档在 Chroma 中的向量（保留本地文件）"""
+    """从RAG文档库中移除文档（保留本地文件）"""
     try:
-        # 使用Chroma删除文档
+# 删除本地文件
+        file_path = UPLOAD_DIR / filename
+        if file_path.exists():
+            file_path.unlink()
         result = chroma_manager.delete({"filename": filename})
         parent_chunk_store.delete_by_filename(filename)
 
+        metadata_file = DATA_DIR / "documents_metadata.json"
+        if metadata_file.exists():
+            with open(metadata_file, "r", encoding="utf-8") as f:
+                documents_metadata = json.load(f)
+            
+            if filename in documents_metadata:
+                del documents_metadata[filename]
+                with open(metadata_file, "w", encoding="utf-8") as f:
+                    json.dump(documents_metadata, f, ensure_ascii=False, indent=2)
+
         return DocumentDeleteResponse(
             filename=filename,
-            chunks_deleted=0,  # Chroma不直接提供删除计数
-            message=f"成功删除文档 {filename} 的向量数据（本地文件已保留）",
+            chunks_deleted=0,
+            message=f"成功从RAG文档库中移除文档 {filename}（本地文件已保留）",
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"删除文档失败: {str(e)}")

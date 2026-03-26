@@ -247,7 +247,20 @@ def step_back_expand(query: str) -> dict:
 
 def retrieve_documents(query: str, top_k: int = 5) -> Dict[str, Any]:
     candidate_k = max(top_k * 3, top_k)
-    filter_expr = {"chunk_level": LEAF_RETRIEVE_LEVEL}
+    
+    import re
+    filename_match = re.search(r'([\w\.-]+\.(pdf|docx|doc))', query)
+    
+    if filename_match:
+        filename = filename_match.group(1)
+        filter_expr = {
+            "chunk_level": LEAF_RETRIEVE_LEVEL,
+            "filename": filename
+        }
+        print(f"检测到文件名查询，使用过滤条件: {filter_expr}")
+    else:
+        filter_expr = {"chunk_level": LEAF_RETRIEVE_LEVEL}
+    
     try:
         # 使用Chroma进行检索
         retrieved = _chroma_manager.retrieve(
