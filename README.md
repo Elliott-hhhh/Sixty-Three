@@ -3,6 +3,7 @@
 ## 项目简介
 
 Sixty-Three是一个基于RAG（检索增强生成）技术的Agent系统。目标是成为个人的全盘助手，实现对个人电脑与手机的完全掌控，以及模型个性化（模仿人的语气与声音）。
+https://github.com/Elliott-hhhh/Sixty-Three/raw/refs/heads/main/demo.mp4
 <video src="https://github.com/Elliott-hhhh/Sixty-Three/raw/refs/heads/main/demo.mp4" controls width="100%"></video>
 
 ## 核心功能
